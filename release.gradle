@@ -70,3 +70,16 @@ tasks.register('verifyPublicationPom') {
         }
     }
 }
+
+// Keep the historical release commands stable while using the current Sonatype plugin internally.
+gradle.projectsEvaluated {
+    tasks.named('publish') {
+        dependsOn 'publishToSonatype'
+    }
+}
+
+tasks.register('closeAndReleaseRepository') {
+    group = 'publishing'
+    description = 'Closes and releases the current Sonatype staging repository.'
+    dependsOn 'findSonatypeStagingRepository', 'closeAndReleaseSonatypeStagingRepository'
+}
