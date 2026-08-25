@@ -12,7 +12,7 @@ A Web Push library for Java 8. Supports payloads and VAPID.
 Maven coordinates for the latest release:
 
 ```text
-com.github.p4535992:webpush-java:5.1.4
+com.github.p4535992:webpush-java:5.2.1
 ```
 
 For Maven, add the JitPack repository and dependency:
@@ -28,7 +28,7 @@ For Maven, add the JitPack repository and dependency:
 <dependency>
     <groupId>com.github.p4535992</groupId>
     <artifactId>webpush-java</artifactId>
-    <version>5.1.4</version>
+    <version>5.2.1</version>
 </dependency>
 ```
 
@@ -41,7 +41,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.github.p4535992:webpush-java:5.1.4'
+    implementation 'com.github.p4535992:webpush-java:5.2.1'
 }
 ```
 
@@ -80,7 +80,7 @@ To assemble all archives in the project:
 To validate the same Maven publication used by JitPack:
 
 ```sh
-GROUP=com.github.p4535992 ARTIFACT=webpush-java VERSION=5.1.4 ./gradlew clean build publishToMavenLocal
+GROUP=com.github.p4535992 ARTIFACT=webpush-java VERSION=5.2.1 ./gradlew clean build publishToMavenLocal
 ```
 
 ## Usage
@@ -211,7 +211,7 @@ To give credit where credit is due, the PushService is mostly a Java port of mar
 
 - [Generic Event Delivery Using HTTP Push](https://tools.ietf.org/html/draft-ietf-webpush-protocol-11)
 - [Message Encryption for Web Push](https://tools.ietf.org/html/draft-ietf-webpush-encryption-08)
-- [Encrypted Content-Encoding for HTTP](https://tools.ietf.org/html/draft-ietf-httpbis-encryption-encoding-02)
+- [Encrypted Content-Encoding for Web Push](https://tools.ietf.org/html/draft-ietf-httpbis-encryption-encoding-02)
 
 ### Miscellaneous
 
