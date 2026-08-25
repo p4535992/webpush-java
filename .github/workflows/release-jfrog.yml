@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       JFROG_URL: ${{ vars.JFROG_URL }}
-      JFROG_REPOSITORY: ${{ vars.JFROG_REPOSITORY }}
+      JFROG_REPOSITORY: ${{ vars.JFROG_REPOSITORY || 'webpush-java-local' }}
       JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
       JFROG_ACCESS_TOKEN: ${{ secrets.JFROG_ACCESS_TOKEN }}
       EVENT_RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
@@ -120,12 +120,53 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for name in JFROG_URL JFROG_REPOSITORY JFROG_USERNAME JFROG_ACCESS_TOKEN; do
+          for name in JFROG_URL JFROG_USERNAME JFROG_ACCESS_TOKEN; do
             if [[ -z "${!name:-}" ]]; then
               echo "::error::Missing GitHub configuration for $name. See JFROG.md."
               exit 1
             fi
           done
+          echo "JFrog target repository: $JFROG_REPOSITORY"
+
+      - name: Ensure JFrog Maven repository exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="${JFROG_URL%/}"
+          if [[ "$base" == */artifactory ]]; then
+            artifactory="$base"
+          else
+            artifactory="$base/artifactory"
+          fi
+          api="$artifactory/api/repositories/$JFROG_REPOSITORY"
+          status="$(curl --silent --show-error \
+            --output /tmp/jfrog-repository-response.json \
+            --write-out '%{http_code}' \
+            --user "$JFROG_USERNAME:$JFROG_ACCESS_TOKEN" \
+            "$api" || true)"
+
+          if [[ "$status" == "200" ]]; then
+            echo "JFrog repository $JFROG_REPOSITORY already exists."
+            exit 0
+          fi
+
+          if [[ "$status" != "404" ]]; then
+            cat /tmp/jfrog-repository-response.json || true
+            echo "::error::Unable to inspect JFrog repository $JFROG_REPOSITORY (HTTP $status)."
+            exit 1
+          fi
+
+          jq --arg key "$JFROG_REPOSITORY" '.key = $key' \
+            .jfrog/repositories/webpush-java-local.json \
+            > /tmp/jfrog-repository.json
+
+          echo "JFrog repository $JFROG_REPOSITORY does not exist; creating it."
+          curl --fail-with-body --silent --show-error \
+            --request PUT \
+            --user "$JFROG_USERNAME:$JFROG_ACCESS_TOKEN" \
+            --header 'Content-Type: application/json' \
+            --data-binary @/tmp/jfrog-repository.json \
+            "$api"
 
       - name: Publish Maven publication to JFrog Artifactory
         shell: bash
