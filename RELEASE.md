@@ -17,28 +17,33 @@ git tag -a NEW_VERSION -m "Version NEW_VERSION"
 git push --tags
 ```
 
-3. [Deploy to OSSRH with Gradle](http://central.sonatype.org/pages/gradle.html):
+3. Create and publish the GitHub Release for that tag.
+
+Publishing the GitHub Release automatically runs `.github/workflows/release-jfrog.yml`. The workflow uses the tag as the Maven version, runs the tests, builds the main JAR plus sources and Javadocs, publishes the Maven publication to JFrog Artifactory, and attaches the three JAR files to the GitHub Release.
+
+JFrog setup and required GitHub variables/secrets are documented in [JFROG.md](JFROG.md).
+
+4. [Deploy to OSSRH with Gradle](http://central.sonatype.org/pages/gradle.html), if a Maven Central release is also required:
 
 ```
 ./gradlew -Prelease clean publish
 ```
 
-4. [Releasing the Deployment](http://central.sonatype.org/pages/releasing-the-deployment.html):
+5. [Releasing the Deployment](http://central.sonatype.org/pages/releasing-the-deployment.html):
 
 ```
 ./gradlew -Prelease closeAndReleaseRepository
 ```
 
-5. Increment to next version and add a -SNAPSHOT suffix
+6. Increment to next version and add a -SNAPSHOT suffix
 
 ```
 ./scripts/version.sh OLD_VERSION NEW_VERSION-SNAPSHOT
 ```
 
-6. Create a commit for the new version "Set version to a.b.c-SNAPSHOT"
+7. Create a commit for the new version "Set version to a.b.c-SNAPSHOT"
 
 ```
 git add README.md build.gradle
 git commit -m "Set version to NEW_VERSION-SNAPSHOT"
 ```
-
