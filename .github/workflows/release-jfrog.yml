@@ -34,6 +34,15 @@ jobs:
         with:
           ref: ${{ github.event_name == 'push' && github.sha || github.event.release.tag_name || inputs.tag }}
 
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Resolve release version
         shell: bash
         run: |
@@ -52,17 +61,6 @@ jobs:
           echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
           echo "Publishing version $version from $tag"
 
-      - name: Validate JFrog configuration
-        shell: bash
-        run: |
-          set -euo pipefail
-          for name in JFROG_URL JFROG_REPOSITORY JFROG_USERNAME JFROG_ACCESS_TOKEN; do
-            if [[ -z "${!name:-}" ]]; then
-              echo "::error::Missing GitHub configuration for $name. See JFROG.md."
-              exit 1
-            fi
-          done
-
       - name: Build, test, sources and Javadocs
         shell: bash
         run: |
@@ -78,11 +76,6 @@ jobs:
             "build/libs/web-push-${RELEASE_VERSION}-javadoc.jar"; do
             test -f "$file" || { echo "::error::Expected artifact not found: $file"; exit 1; }
           done
-
-      - name: Publish Maven publication to JFrog Artifactory
-        shell: bash
-        run: |
-          ./gradlew -Pjfrog -PreleaseVersion="$RELEASE_VERSION" publishMavenJavaPublicationToJfrogRepository
 
       - name: Store workflow artifacts
         uses: actions/upload-artifact@v4
@@ -120,5 +113,21 @@ jobs:
               "build/libs/web-push-${RELEASE_VERSION}-javadoc.jar" \
               --clobber
           else
-            echo "No GitHub Release exists for $RELEASE_TAG; JFrog publication completed without release attachments."
+            echo "No GitHub Release exists for $RELEASE_TAG; skipping release attachments."
           fi
+
+      - name: Validate JFrog configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in JFROG_URL JFROG_REPOSITORY JFROG_USERNAME JFROG_ACCESS_TOKEN; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Missing GitHub configuration for $name. See JFROG.md."
+              exit 1
+            fi
+          done
+
+      - name: Publish Maven publication to JFrog Artifactory
+        shell: bash
+        run: |
+          ./gradlew -Pjfrog -PreleaseVersion="$RELEASE_VERSION" publishMavenJavaPublicationToJfrogRepository
