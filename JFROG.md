@@ -1,22 +1,24 @@
 # JFrog Artifactory publishing
 
-This repository can publish the Maven release artifacts to a JFrog Artifactory local Maven repository when a GitHub Release is published.
+This repository can build a GitHub Release and publish the Maven release artifacts to a JFrog Artifactory local Maven repository.
 
-The release workflow builds and tests the project, generates the main JAR, sources JAR and Javadoc JAR, publishes the Maven publication to Artifactory, stores the three JARs as GitHub Actions artifacts, and attaches them to the GitHub Release.
+The release workflow builds and tests the project, generates the main JAR, sources JAR and Javadoc JAR, stores them as GitHub Actions artifacts, attaches them to the GitHub Release, ensures the target Artifactory Maven repository exists, and then publishes the Maven publication to JFrog.
 
-## 1. Create the Artifactory repository
+## 1. JFrog repository
 
-A ready-to-use local Maven repository definition is stored in:
+A local Maven repository definition is stored in:
 
 ```text
 .jfrog/repositories/webpush-java-local.json
 ```
 
-The repository key is `webpush-java-local`. It accepts releases and rejects snapshots.
+The default repository key is `webpush-java-local`. It accepts releases and rejects snapshots.
 
-You can create it from the JFrog UI as a **Local Maven** repository, or provision it once with the Artifactory Repository REST API. Repository creation requires JFrog Admin or Project Admin permissions.
+During a release, the GitHub Action first checks whether the target repository exists. If it does not exist, the workflow attempts to create it using the Artifactory Repository REST API.
 
-Example using an admin-scoped token:
+Automatic creation requires JFrog Admin or Project Admin permissions. If the token only has deploy permission, create the repository once from the JFrog UI or with an admin-scoped token, then keep the narrower deploy token in GitHub Actions.
+
+Example manual provisioning:
 
 ```bash
 export JFROG_URL="https://your-company.jfrog.io"
@@ -30,25 +32,44 @@ curl --fail-with-body \
   "${JFROG_URL%/}/artifactory/api/repositories/webpush-java-local"
 ```
 
-Do not use the admin-scoped token for normal release publishing. Create a narrower token/user that only has deploy permissions on the release repository.
-
 ## 2. Configure GitHub
 
-In **Settings -> Secrets and variables -> Actions**, create these repository variables:
+In **Settings -> Secrets and variables -> Actions**, create this repository variable:
 
 - `JFROG_URL`: JFrog platform URL, for example `https://your-company.jfrog.io`. A URL ending in `/artifactory` is also accepted.
-- `JFROG_REPOSITORY`: repository key, normally `webpush-java-local`.
+
+Optional repository variable:
+
+- `JFROG_REPOSITORY`: repository key. If omitted, `webpush-java-local` is used.
 
 Create these repository secrets:
 
 - `JFROG_USERNAME`: JFrog user associated with the publishing token.
-- `JFROG_ACCESS_TOKEN`: access/identity token with deploy permissions on `JFROG_REPOSITORY`.
+- `JFROG_ACCESS_TOKEN`: access/identity token with deploy permission on the target repository. To let the workflow create the repository automatically, this identity also needs repository-creation privileges.
 
 ## 3. Publish a release
 
-Create a GitHub Release for a tag such as `5.1.3` or `v5.1.3` and publish it. The workflow `.github/workflows/release-jfrog.yml` starts on the `release.published` event.
+There are three supported entry points.
 
-The tag is the source of the published Maven version. For example, both `5.1.3` and `v5.1.3` produce:
+### Release request from master
+
+Set `.github/release-version` to the version to publish, for example:
+
+```text
+5.1.3
+```
+
+A push of that file to `master` runs the complete pipeline. If the GitHub Release does not exist, the workflow creates it; if it already exists, it reuses it and replaces the attached JAR assets.
+
+### Existing GitHub Release
+
+Publishing a GitHub Release for a tag such as `5.1.3` or `v5.1.3` also starts the workflow through `release.published`.
+
+### Manual run
+
+The workflow can be started with **Run workflow** and an existing tag.
+
+The release/tag value controls the Maven version. For example `5.1.3` produces:
 
 ```text
 nl.martijndwars:web-push:5.1.3
@@ -57,15 +78,15 @@ web-push-5.1.3-sources.jar
 web-push-5.1.3-javadoc.jar
 ```
 
-The workflow can also be started manually with **Run workflow** and an existing tag. Manual runs publish to JFrog and store workflow artifacts, but do not modify a GitHub Release.
-
 ## Local publishing test
 
-With the same environment variables configured locally:
+With the JFrog environment variables configured locally:
 
 ```bash
 ./gradlew clean test jar sourcesJar javadocJar -PreleaseVersion=5.1.3
 ./gradlew -Pjfrog -PreleaseVersion=5.1.3 publishMavenJavaPublicationToJfrogRepository
 ```
+
+`JFROG_REPOSITORY` is optional locally too; it defaults to `webpush-java-local`.
 
 The existing Sonatype release flow remains available through `./gradlew -Prelease ...`.
