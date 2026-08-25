@@ -2,24 +2,62 @@
 
 A Web Push library for Java 8. Supports payloads and VAPID.
 
-[![Build Status](https://travis-ci.org/web-push-libs/webpush-java.svg?branch=master)](https://travis-ci.org/web-push-libs/webpush-java)
+[![JitPack](https://jitpack.io/v/p4535992/webpush-java.svg)](https://jitpack.io/#p4535992/webpush-java)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/nl.martijndwars/web-push/badge.svg)](https://search.maven.org/search?q=g:nl.martijndwars%20AND%20a:web-push)
 
 ## Installation
 
-For Gradle, add the following dependency to `build.gradle`:
+### JitPack (this fork)
+
+For Gradle, add JitPack to your repositories and then use the GitHub repository coordinates:
 
 ```groovy
-compile group: 'nl.martijndwars', name: 'web-push', version: '5.1.2'
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    implementation 'com.github.p4535992:webpush-java:5.1.4'
+}
 ```
 
-For Maven, add the following dependency to `pom.xml`:
+For Maven:
+
+```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+
+<dependency>
+    <groupId>com.github.p4535992</groupId>
+    <artifactId>webpush-java</artifactId>
+    <version>5.1.4</version>
+</dependency>
+```
+
+JitPack builds release tags directly from GitHub. Sources and Javadocs are included in the Maven publication.
+
+### Maven Central (upstream coordinates)
+
+The original Maven Central artifact remains available as:
+
+```groovy
+dependencies {
+    implementation group: 'nl.martijndwars', name: 'web-push', version: '5.1.2'
+}
+```
+
+For Maven:
 
 ```xml
 <dependency>
-    <groupId>nl.martijndwars</groupId>
-    <artifactId>web-push</artifactId>
-    <version>5.1.2</version>
+    <groupId>nl.martijndwars</groupId>
+    <artifactId>web-push</artifactId>
+    <version>5.1.2</version>
 </dependency>
 ```
 
@@ -31,6 +69,12 @@ To assemble all archives in the project:
 
 ```sh
 ./gradlew assemble
+```
+
+To validate the same Maven publication used by JitPack:
+
+```sh
+GROUP=com.github.p4535992 ARTIFACT=webpush-java VERSION=5.1.4 ./gradlew clean build publishToMavenLocal
 ```
 
 ## Usage
@@ -84,7 +128,7 @@ $ ./gradlew run --args='send-notification --endpoint="https://fcm.googleapis.com
 
 #### Proxy
 
-If you are behind a corporate proxy you may need to specify the proxy host. This library respects [Java's Network Properties](https://docs.oracle.com/javase/7/docs/api/java/net/doc-files/net-properties.html), which means that you can pass `https.proxyHost` and `http.proxyPort` when invoking `java`, e.g. `java -Dhttp.proxyHost=proxy.corp.com -Dhttp.proxyPort=80 -Dhttps.proxyHost=proxy.corp.com -Dhttps.proxyPort=443 -jar ...`.
+If you are behind a corporate proxy you may need to specify the proxy host. This library respects [Java's Network Properties](https://docs.oracle.com/javase/7/docs/api/java/net-doc-files/net-properties.html), which means that you can pass `https.proxyHost` and `http.proxyPort` when invoking `java`, e.g. `java -Dhttp.proxyHost=proxy.corp.com -Dhttp.proxyPort=80 -Dhttps.proxyHost=proxy.corp.com -Dhttps.proxyPort=443 -jar ...`.
 
 ### API
 
@@ -147,7 +191,7 @@ web-push-testing-service stop wpts
 
 There may not be enough entropy to generate a random seed, which is common on headless servers. There exist two ways to overcome this problem:
 
-- Install [haveged](http://stackoverflow.com/a/31208558/368220), a _"random number generator that remedies low-entropy conditions in the Linux random device that can occur under some workloads, especially on headless servers."_ [This](https://www.digitalocean.com/community/tutorials/how-to-setup-additional-entropy-for-cloud-servers-using-haveged) tutorial explains how to install haveged on different Linux distributions.
+- Install [haveged](http://stackoverflow.com/a/31208558/368220), a _"random number generator that remedies low-entropy conditions that can occur under some workloads, especially on headless servers."_ [This](https://www.digitalocean.com/community/tutorials/how-to-setup-additional-entropy-for-cloud-servers-using-haveged) tutorial explains how to install haveged on different Linux distributions.
 
 - Change the source for random number generation in the JVM from `/dev/random` to `/dev/urandom`. [This](https://docs.oracle.com/cd/E13209_01/wlcp/wlss30/configwlss/jvmrand.html) page offers some explanation.
 
@@ -180,4 +224,3 @@ The web-push-libs organization hosts implementations of the Web Push protocol in
 - For Python, see [web-push-libs/pywebpush](https://github.com/web-push-libs/pywebpush)
 - For C#, see [web-push-libs/web-push-csharp](https://github.com/web-push-libs/web-push-csharp)
 - For Scala, see [zivver/web-push](https://github.com/zivver/web-push)
-
