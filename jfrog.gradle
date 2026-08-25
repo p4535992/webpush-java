@@ -1,0 +1,35 @@
+def jfrogUrl = project.findProperty('jfrogUrl') ?: System.getenv('JFROG_URL')
+def jfrogRepository = project.findProperty('jfrogRepository') ?: System.getenv('JFROG_REPOSITORY')
+def jfrogUsername = project.findProperty('jfrogUsername') ?: System.getenv('JFROG_USERNAME')
+def jfrogAccessToken = project.findProperty('jfrogAccessToken') ?: System.getenv('JFROG_ACCESS_TOKEN')
+
+if (!jfrogUrl) {
+    throw new GradleException('Missing JFrog URL. Set JFROG_URL or -PjfrogUrl.')
+}
+if (!jfrogRepository) {
+    throw new GradleException('Missing JFrog repository key. Set JFROG_REPOSITORY or -PjfrogRepository.')
+}
+if (!jfrogUsername) {
+    throw new GradleException('Missing JFrog username. Set JFROG_USERNAME or -PjfrogUsername.')
+}
+if (!jfrogAccessToken) {
+    throw new GradleException('Missing JFrog access token. Set JFROG_ACCESS_TOKEN or -PjfrogAccessToken.')
+}
+
+def normalizedJfrogUrl = jfrogUrl.replaceAll('/+$', '')
+def artifactoryUrl = normalizedJfrogUrl.endsWith('/artifactory')
+        ? normalizedJfrogUrl
+        : "${normalizedJfrogUrl}/artifactory"
+
+publishing {
+    repositories {
+        maven {
+            name = 'jfrog'
+            url = uri("${artifactoryUrl}/${jfrogRepository}")
+            credentials {
+                username = jfrogUsername
+                password = jfrogAccessToken
+            }
+        }
+    }
+}
