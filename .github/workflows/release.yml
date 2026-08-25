@@ -1,0 +1,132 @@
+name: Build release artifacts
+
+on:
+  release:
+    types: [published]
+  push:
+    branches: [master]
+    paths:
+      - '.github/release-version'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build (for example 5.1.4 or v5.1.4)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and validate Maven artifacts
+    runs-on: ubuntu-latest
+    env:
+      EVENT_RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      JITPACK_GROUP: com.github.p4535992
+      JITPACK_ARTIFACT: webpush-java
+
+    steps:
+      - name: Checkout requested revision
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'push' && github.sha || github.event.release.tag_name || inputs.tag }}
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Resolve release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            tag="$(tr -d '[:space:]' < .github/release-version)"
+          else
+            tag="$EVENT_RELEASE_TAG"
+          fi
+          version="${tag#v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Unsupported release tag '$tag'. Expected 1.2.3 or v1.2.3."
+            exit 1
+          fi
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
+          echo "Building version $version from $tag"
+
+      - name: Build and simulate JitPack publication
+        shell: bash
+        run: |
+          GROUP="$JITPACK_GROUP" \
+          ARTIFACT="$JITPACK_ARTIFACT" \
+          VERSION="$RELEASE_VERSION" \
+          ./gradlew clean build publishToMavenLocal
+
+      - name: Verify release JARs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \
+            "build/libs/web-push-${RELEASE_VERSION}.jar" \
+            "build/libs/web-push-${RELEASE_VERSION}-sources.jar" \
+            "build/libs/web-push-${RELEASE_VERSION}-javadoc.jar"; do
+            test -f "$file" || { echo "::error::Expected artifact not found: $file"; exit 1; }
+          done
+
+      - name: Verify JitPack Maven publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="$HOME/.m2/repository/com/github/p4535992/webpush-java/$RELEASE_VERSION"
+          for file in \
+            "$base/webpush-java-${RELEASE_VERSION}.pom" \
+            "$base/webpush-java-${RELEASE_VERSION}.jar" \
+            "$base/webpush-java-${RELEASE_VERSION}-sources.jar" \
+            "$base/webpush-java-${RELEASE_VERSION}-javadoc.jar"; do
+            test -f "$file" || { echo "::error::JitPack-compatible Maven artifact not found: $file"; exit 1; }
+          done
+          echo "Validated com.github.p4535992:webpush-java:$RELEASE_VERSION"
+
+      - name: Store workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-push-${{ env.RELEASE_TAG }}
+          path: build/libs/*.jar
+          if-no-files-found: error
+
+      - name: Ensure GitHub Release exists
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; reusing it."
+          else
+            gh release create "$RELEASE_TAG" \
+              --target "$GITHUB_SHA" \
+              --title "web-push $RELEASE_VERSION" \
+              --generate-notes
+          fi
+
+      - name: Attach JARs to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" \
+              "build/libs/web-push-${RELEASE_VERSION}.jar" \
+              "build/libs/web-push-${RELEASE_VERSION}-sources.jar" \
+              "build/libs/web-push-${RELEASE_VERSION}-javadoc.jar" \
+              --clobber
+          else
+            echo "No GitHub Release exists for $RELEASE_TAG; skipping release attachments."
+          fi
