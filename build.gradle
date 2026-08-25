@@ -3,7 +3,7 @@ plugins {
     id 'java-library'
     id 'com.github.johnrengelman.shadow' version '7.1.1'
 
-    // Used by release.gradle
+    // Used by release.gradle and JFrog publishing
     id 'maven-publish'
     id 'signing'
     id 'io.github.gradle-nexus.publish-plugin' version '2.0.0' apply false
@@ -13,7 +13,7 @@ apply plugin: 'application'
 apply plugin: 'com.github.johnrengelman.shadow'
 
 group 'nl.martijndwars'
-version '5.1.2'
+version = findProperty('releaseVersion') ?: '5.1.2'
 
 repositories {
     mavenLocal()
@@ -104,7 +104,45 @@ artifacts {
     archives sourcesJar
 }
 
+// Keep the Maven publication definition shared between Sonatype and JFrog.
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            artifact sourcesJar
+            artifact javadocJar
+            pom {
+                name = 'web-push'
+                description = 'A Web Push library for Java.'
+                url = 'https://github.com/web-push-libs/webpush-java'
+                scm {
+                    connection = 'scm:git:git@github.com:web-push-libs/webpush-java.git'
+                    developerConnection = 'scm:git:git@github.com:web-push-libs/webpush-java.git'
+                    url = 'git@github.com:web-push-libs/webpush-java.git'
+                }
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'https://opensource.org/licenses/MIT'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'martijndwars'
+                        name = 'Martijn Dwars'
+                        email = 'ikben@martijndwars.nl'
+                    }
+                }
+            }
+        }
+    }
+}
+
 if (hasProperty('release')) {
     apply plugin: 'io.github.gradle-nexus.publish-plugin'
     apply from: 'release.gradle'
+}
+
+if (hasProperty('jfrog')) {
+    apply from: 'jfrog.gradle'
 }

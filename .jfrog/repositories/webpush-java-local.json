@@ -1,0 +1,9 @@
+{
+  "key": "webpush-java-local",
+  "rclass": "local",
+  "packageType": "maven",
+  "description": "Release artifacts for p4535992/webpush-java",
+  "repoLayoutRef": "maven-2-default",
+  "handleReleases": true,
+  "handleSnapshots": false
+}
