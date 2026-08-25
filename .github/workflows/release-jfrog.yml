@@ -18,82 +18,39 @@ permissions:
   contents: write
 
 jobs:
-  create-release:
-    name: Create GitHub release
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout master
-        uses: actions/checkout@v6
-
-      - name: Resolve requested release tag
-        id: release
-        shell: bash
-        run: |
-          set -euo pipefail
-          tag="$(tr -d '[:space:]' < .github/release-version)"
-          version="${tag#v}"
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::Unsupported release version '$tag'. Expected 1.2.3 or v1.2.3."
-            exit 1
-          fi
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Create tag and publish GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
-          RELEASE_VERSION: ${{ steps.release.outputs.version }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "::error::Release/tag '$RELEASE_TAG' already exists."
-            exit 1
-          fi
-          gh release create "$RELEASE_TAG" \
-            --target "$GITHUB_SHA" \
-            --title "web-push $RELEASE_VERSION" \
-            --generate-notes
-
   publish:
     name: Build and publish Maven artifacts
-    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     env:
       JFROG_URL: ${{ vars.JFROG_URL }}
       JFROG_REPOSITORY: ${{ vars.JFROG_REPOSITORY }}
       JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
       JFROG_ACCESS_TOKEN: ${{ secrets.JFROG_ACCESS_TOKEN }}
-      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      EVENT_RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
 
     steps:
-      - name: Checkout release tag
+      - name: Checkout requested revision
         uses: actions/checkout@v6
         with:
-          ref: ${{ env.RELEASE_TAG }}
-
-      - name: Set up JDK 11
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '11'
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+          ref: ${{ github.event_name == 'push' && github.sha || github.event.release.tag_name || inputs.tag }}
 
       - name: Resolve release version
         shell: bash
         run: |
           set -euo pipefail
-          version="${RELEASE_TAG#v}"
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            tag="$(tr -d '[:space:]' < .github/release-version)"
+          else
+            tag="$EVENT_RELEASE_TAG"
+          fi
+          version="${tag#v}"
           if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::Unsupported release tag '$RELEASE_TAG'. Expected 1.2.3 or v1.2.3 (pre-release suffixes are allowed)."
+            echo "::error::Unsupported release tag '$tag'. Expected 1.2.3 or v1.2.3 (pre-release suffixes are allowed)."
             exit 1
           fi
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
           echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
-          echo "Publishing version $version from tag $RELEASE_TAG"
+          echo "Publishing version $version from $tag"
 
       - name: Validate JFrog configuration
         shell: bash
@@ -134,14 +91,34 @@ jobs:
           path: build/libs/*.jar
           if-no-files-found: error
 
-      - name: Attach JARs to GitHub Release
-        if: github.event_name == 'release'
+      - name: Ensure GitHub Release exists
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh release upload "$RELEASE_TAG" \
-            "build/libs/web-push-${RELEASE_VERSION}.jar" \
-            "build/libs/web-push-${RELEASE_VERSION}-sources.jar" \
-            "build/libs/web-push-${RELEASE_VERSION}-javadoc.jar" \
-            --clobber
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; reusing it."
+          else
+            gh release create "$RELEASE_TAG" \
+              --target "$GITHUB_SHA" \
+              --title "web-push $RELEASE_VERSION" \
+              --generate-notes
+          fi
+
+      - name: Attach JARs to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" \
+              "build/libs/web-push-${RELEASE_VERSION}.jar" \
+              "build/libs/web-push-${RELEASE_VERSION}-sources.jar" \
+              "build/libs/web-push-${RELEASE_VERSION}-javadoc.jar" \
+              --clobber
+          else
+            echo "No GitHub Release exists for $RELEASE_TAG; JFrog publication completed without release attachments."
+          fi
