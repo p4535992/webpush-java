@@ -1,0 +1,66 @@
+name: Verify JitPack artifact
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/jitpack-check-version'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: JitPack version/tag to verify
+        required: true
+        type: string
+
+jobs:
+  verify:
+    name: Resolve artifact from JitPack
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Resolve version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            version="$(tr -d '[:space:]' < .github/jitpack-check-version)"
+          else
+            version="${{ inputs.version }}"
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Request and verify JitPack POM
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://jitpack.io/com/github/p4535992/webpush-java/${VERSION}/webpush-java-${VERSION}.pom"
+          log="https://jitpack.io/com/github/p4535992/webpush-java/${VERSION}/build.log"
+          echo "Requesting $url"
+
+          status=""
+          for attempt in 1 2 3 4 5 6; do
+            status="$(curl --location --silent --show-error \
+              --connect-timeout 20 --max-time 180 \
+              --output /tmp/webpush-java.pom \
+              --write-out '%{http_code}' \
+              "$url" || true)"
+            if [[ "$status" == "200" ]]; then
+              break
+            fi
+            echo "Attempt $attempt returned HTTP $status; waiting before retry."
+            sleep 20
+          done
+
+          if [[ "$status" != "200" ]]; then
+            echo "::error::JitPack did not return the POM (last HTTP status: $status)."
+            echo "--- JitPack build log ---"
+            curl --location --silent --show-error "$log" || true
+            exit 1
+          fi
+
+          grep -q '<groupId>com.github.p4535992</groupId>' /tmp/webpush-java.pom
+          grep -q '<artifactId>webpush-java</artifactId>' /tmp/webpush-java.pom
+          grep -q "<version>${VERSION}</version>" /tmp/webpush-java.pom
+          echo "JitPack artifact com.github.p4535992:webpush-java:${VERSION} is available."
