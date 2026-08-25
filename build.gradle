@@ -3,7 +3,7 @@ plugins {
     id 'java-library'
     id 'com.github.johnrengelman.shadow' version '7.1.1'
 
-    // Used by release.gradle and JFrog publishing
+    // Used by JitPack and release.gradle
     id 'maven-publish'
     id 'signing'
     id 'io.github.gradle-nexus.publish-plugin' version '2.0.0' apply false
@@ -12,8 +12,12 @@ plugins {
 apply plugin: 'application'
 apply plugin: 'com.github.johnrengelman.shadow'
 
-group 'nl.martijndwars'
-version = findProperty('releaseVersion') ?: '5.1.2'
+// JitPack provides GROUP, ARTIFACT and VERSION while building a tag.
+// Keep the historical Maven Central coordinates everywhere else.
+group = System.getenv('GROUP') ?: 'nl.martijndwars'
+version = System.getenv('VERSION') ?: findProperty('releaseVersion') ?: '5.1.4'
+
+def publishedArtifactId = System.getenv('ARTIFACT') ?: 'web-push'
 
 repositories {
     mavenLocal()
@@ -104,21 +108,26 @@ artifacts {
     archives sourcesJar
 }
 
-// Keep the Maven publication definition shared between Sonatype and JFrog.
+// JitPack invokes `build publishToMavenLocal` for Gradle projects using
+// maven-publish. Its environment variables make the published coordinates:
+// com.github.<owner>:<repository>:<tag>.
 publishing {
     publications {
         mavenJava(MavenPublication) {
+            groupId = project.group.toString()
+            artifactId = publishedArtifactId
+            version = project.version.toString()
             from components.java
             artifact sourcesJar
             artifact javadocJar
             pom {
                 name = 'web-push'
                 description = 'A Web Push library for Java.'
-                url = 'https://github.com/web-push-libs/webpush-java'
+                url = 'https://github.com/p4535992/webpush-java'
                 scm {
-                    connection = 'scm:git:git@github.com:web-push-libs/webpush-java.git'
-                    developerConnection = 'scm:git:git@github.com:web-push-libs/webpush-java.git'
-                    url = 'git@github.com:web-push-libs/webpush-java.git'
+                    connection = 'scm:git:https://github.com/p4535992/webpush-java.git'
+                    developerConnection = 'scm:git:https://github.com/p4535992/webpush-java.git'
+                    url = 'https://github.com/p4535992/webpush-java'
                 }
                 licenses {
                     license {
@@ -141,8 +150,4 @@ publishing {
 if (hasProperty('release')) {
     apply plugin: 'io.github.gradle-nexus.publish-plugin'
     apply from: 'release.gradle'
-}
-
-if (hasProperty('jfrog')) {
-    apply from: 'jfrog.gradle'
 }
