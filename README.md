@@ -229,4 +229,4 @@ The web-push-libs organization hosts implementations of the Web Push protocol in
 - For NodeJS, see [web-push-libs/web-push](https://github.com/web-push-libs/web-push)
 - For Python, see [web-push-libs/pywebpush](https://github.com/web-push-libs/pywebpush)
 - For C#, see [web-push-libs/web-push-csharp](https://github.com/web-push-libs/web-push-csharp)
-- For Scala, see [zivver/web-push](https://github.com/web-push-libs/web-push-csharp)
+- For Scala, see [zivver/web-push](https://github.com/zivver/web-push)
