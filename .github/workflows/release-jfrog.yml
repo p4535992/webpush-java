@@ -3,6 +3,10 @@ name: Publish release to JFrog
 on:
   release:
     types: [published]
+  push:
+    branches: [master]
+    paths:
+      - '.github/release-version'
   workflow_dispatch:
     inputs:
       tag:
@@ -14,8 +18,48 @@ permissions:
   contents: write
 
 jobs:
+  create-release:
+    name: Create GitHub release
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v6
+
+      - name: Resolve requested release tag
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="$(tr -d '[:space:]' < .github/release-version)"
+          version="${tag#v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Unsupported release version '$tag'. Expected 1.2.3 or v1.2.3."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag and publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::Release/tag '$RELEASE_TAG' already exists."
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" \
+            --target "$GITHUB_SHA" \
+            --title "web-push $RELEASE_VERSION" \
+            --generate-notes
+
   publish:
     name: Build and publish Maven artifacts
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     env:
       JFROG_URL: ${{ vars.JFROG_URL }}
