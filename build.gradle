@@ -15,7 +15,7 @@ apply plugin: 'com.github.johnrengelman.shadow'
 // JitPack provides GROUP, ARTIFACT and VERSION while building a tag.
 // Keep the historical Maven Central coordinates everywhere else.
 group = System.getenv('GROUP') ?: 'nl.martijndwars'
-version = System.getenv('VERSION') ?: findProperty('releaseVersion') ?: '5.1.4'
+version = System.getenv('VERSION') ?: findProperty('releaseVersion') ?: '5.2.1'
 
 def publishedArtifactId = System.getenv('ARTIFACT') ?: 'web-push'
 
